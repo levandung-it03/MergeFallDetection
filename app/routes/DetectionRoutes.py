@@ -22,12 +22,14 @@ async def test():
         content={ "msg": "Test Successfully" }
     )
 
+
 @router.post(user_endpoints + "/v1/mpu6050-detection")
 async def mpu6050Detection(request: Request, dto: Mpu6050Detection):
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={ "msg": DetectionServices.handleMpu6050Prediction(request, dto) }
     )
+
 
 @router.post(user_endpoints + "/v1/change-camera-status")
 async def startCameraDetection(request: Request):
@@ -37,7 +39,7 @@ async def startCameraDetection(request: Request):
     except Exception as e:
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={ "msg": "Camera failed to interaction"})
 
+
 @router.post(user_endpoints + "/v1/get-camera-current-status")
 async def getCameraCurrentStatus(request: Request):
-    return JSONResponse(status_code=status.HTTP_200_OK,
-                        content={ "status": DetectionServices.getCameraCurrentStatus(request)})
+    return JSONResponse(status_code=status.HTTP_200_OK, content={ "status": DetectionServices.getCameraCurrentStatus(request)})
