@@ -49,7 +49,8 @@ class FallDetection(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     detected_img_url = Column(String(255))
-    detected_type = Column(String(20), nullable=False)
+    mpu6050_res = Column(String(20), nullable=False)
+    camera_res = Column(String(20), nullable=False)
     created_time = Column(DateTime)
 
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
@@ -59,7 +60,8 @@ class FallDetection(Base):
         return {
             "id": self.id,
             "detected_img_url": self.detected_img_url,
-            "detected_type": self.detected_type,
+            "mpu6050_res": self.mpu6050_res,
+            "camera_res": self.camera_res,
             "created_time": self.created_time,
             "user_id": self.user_id,
         }

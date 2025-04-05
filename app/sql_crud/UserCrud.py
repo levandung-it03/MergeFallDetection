@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
-from app.app_sql.models import User
+from app.app_sql.models import User, Account
+
 
 def save(db: Session, user: User):
     db.add(user)
@@ -14,12 +15,15 @@ def findById(db: Session, userId: int):
 def findByAccountId(db: Session, accountId: int):
     return db.query(User).filter(User.account_id == accountId).first()
 
+def findByAccountEmail(db: Session, email: str):
+    return db.query(User).join(Account).filter(Account.email == email).first()
+
 def deleteById(db: Session, userId: int):
     db.delete(findById(db, userId))
     db.commit()
 
-def updateById(db: Session, userId: int, user: User):
-    raw = db.query(User).filter(User.id == userId).first()
+def updateById(db: Session, user: User):
+    raw = db.query(User).filter(User.id == user.id).first()
     if raw is None:
         return None
     raw.account_id = user.account_id

@@ -18,8 +18,8 @@ def deleteById(db: Session, accountId: int):
     db.delete(findById(db, accountId))
     db.commit()
 
-def updateById(db: Session, accountId: int, account: Account):
-    raw = db.query(Account).filter(Account.id == accountId).first()
+def updateById(db: Session, account: Account):
+    raw = db.query(Account).filter(Account.id == account.id).first()
     if raw is None:
         return None
     raw.email = account.email

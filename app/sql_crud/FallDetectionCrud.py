@@ -15,13 +15,14 @@ def deleteById(db: Session, fallDetectionId: int):
     db.delete(findById(db, fallDetectionId))
     db.commit()
 
-def updateById(db: Session, fallDetectionId: int, fallDetection: FallDetection):
-    raw = db.query(FallDetection).filter(FallDetection.id == fallDetectionId).first()
+def updateById(db: Session, fallDetection: FallDetection):
+    raw = db.query(FallDetection).filter(FallDetection.id == fallDetection.id).first()
     if raw is None:
         return None
     raw.user_id = fallDetection.user_id
     raw.detected_img_url = fallDetection.detected_img_url
-    raw.detected_type = fallDetection.detected_type
+    raw.mpu6050_res = fallDetection.mpu6050_res
+    raw.camera_res = fallDetection.camera_res
     raw.created_time = fallDetection.created_time
     db.commit()
     db.refresh(raw)
