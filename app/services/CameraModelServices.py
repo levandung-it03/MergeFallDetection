@@ -6,7 +6,6 @@ from keras._tf_keras.keras.models import load_model
 import time
 
 from app.enum.Enums import CameraStatus, VirtualDBFile
-from app.services import DetectionServices
 from app.virtual_db import VirtualDBCrud
 
 # Load trained model
