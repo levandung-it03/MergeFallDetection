@@ -1,4 +1,5 @@
 from datetime import datetime
+import logging
 
 from app.app_sql.models import FallDetection
 from app.app_sql.setup_database import SessionLocal
@@ -10,7 +11,12 @@ from app.enum.Enums import CameraStatus, VirtualDBFile
 from app.services.CameraModelServices import PoseStreamApp
 from app.sql_crud import UserCrud, FallDetectionCrud
 from app.virtual_db import VirtualDBCrud
+from app.virtual_db import VirtualDBCrud
+from queue import Queue
+import time
+import cv2
 
+frame_queue = Queue(maxsize=10)
 
 class CameraService:
     def __init__(self):
@@ -19,15 +25,31 @@ class CameraService:
 
     def start_camera(self, request: Request):
         db_session = SessionLocal()
-        cur_session = getattr(request.state, "session", {})
-        user = UserCrud.findByAccountEmail(db_session, cur_session.get("email"))
+        user_id = request.cookies.get("user_id")
+        user = UserCrud.findById(db_session, user_id)
         db_session.close()
 
         self.video_thread = threading.Thread(target=self.pose_stream_app.start_stream, args=(user,), daemon=True)
         self.video_thread.start()
 
-        self.pose_stream_app.start_stream()
         self.pose_stream_app.detection_result = ""
+
+        while True:
+            if not frame_queue.empty():
+                frame = frame_queue.get()  # Lấy frame từ hàng đợi
+                try:
+                    # Kiểm tra và gửi frame đã xử lý
+                    ret, jpeg = cv2.imencode('.jpg', frame)
+                    if ret:
+                        frame_bytes = jpeg.tobytes()
+                        yield (b'--frame\r\n'
+                            b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                except Exception as e:
+                    logging.error(f"Error encoding frame: {str(e)}")
+                    continue
+
+            # Giảm độ trễ giữa các frame (có thể sử dụng time.sleep hoặc tinh chỉnh tốc độ lấy frame)
+            time.sleep(0.01) 
 
     def stop_camera(self, request: Request):
         self.pose_stream_app.stop_stream()
