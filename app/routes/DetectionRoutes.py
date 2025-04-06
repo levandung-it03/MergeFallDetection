@@ -17,10 +17,11 @@ router = APIRouter()
 
 
 @router.post(public_endpoints + "/v1/mpu-pred-cls")
-async def mpu6050Detection(request: Request, dto: Mpu6050Detection):
+async def mpu6050Detection(dto: Mpu6050Detection):
+    DetectionServices.handleMpu6050Prediction(dto)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content={ "msg": DetectionServices.handleMpu6050Prediction(request, dto) }
+        content={ "msg": "Received Data" }
     )
 
 
