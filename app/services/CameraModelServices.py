@@ -4,14 +4,19 @@ import numpy as np
 import mediapipe as mp
 from keras._tf_keras.keras.models import load_model
 import time
+import queue
 
 from app.enum.Enums import CameraStatus, VirtualDBFile
 from app.virtual_db import VirtualDBCrud
+from app.services import DetectionServices
+import os
+
+
+frame_queue = queue.Queue(maxsize=10)
 
 # Load trained model
-# model_url = os.path.join(os.getcwd(), "app/machines/camera-model.h5")
-# model = load_model(model_url)
-model = None
+model_url = os.path.join(os.getcwd(), "app/machines/camera-model.h5")
+model = load_model(model_url)
 
 # Mediapipe Pose Setup
 mp_pose = mp.solutions.pose
@@ -29,7 +34,8 @@ class PoseStreamApp:
         self.running = False
 
     def start_stream(self, user):
-        cap = cv2.VideoCapture(user.esp32_url)
+        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
+        cap = cv2.VideoCapture(user.esp32_url, cv2.CAP_FFMPEG)
 
         if not cap.isOpened() and self.running:
             print(f"Lỗi: Không mở được stream từ {user.esp32_url}")
@@ -41,10 +47,15 @@ class PoseStreamApp:
             if ret:
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 results = pose.process(frame_rgb)
+
+                if not frame_queue.full():
+                    DetectionServices.frame_queue.put(frame)
+
                 if (results.pose_landmarks
                 and VirtualDBCrud.read_property(VirtualDBFile.USER, user.id) == CameraStatus.PREDICT_ON):
                     print("Pose detected successfully")
                     mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
+                    
                     landmarks = []
                     for lm in results.pose_landmarks.landmark:
                         landmarks.append(lm.x)
