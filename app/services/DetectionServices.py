@@ -11,14 +11,12 @@ from app.enum.Enums import CameraStatus, VirtualDBFile
 from app.services.CameraModelServices import PoseStreamApp
 from app.sql_crud import UserCrud, FallDetectionCrud
 from app.virtual_db import VirtualDBCrud
-from app.virtual_db import VirtualDBCrud
 from queue import Queue
 import time
 import cv2
 
 frame_queue = Queue(maxsize=10)
 class CameraService:
-
     def __init__(self):
         self.pose_stream_app = PoseStreamApp()
         self.video_thread = None
@@ -77,11 +75,10 @@ camera_service = CameraService()
 
 def handleMpu6050Prediction(mpu6050PredRes: Mpu6050Detection):
     db_session = SessionLocal()
-    camera_service = CameraService()
 
     user = UserCrud.findByAccountId(db_session, mpu6050PredRes.user_id)
 
-    # Should have await here?
+    # Should have await/schedule here?
     camera_prediction = camera_service.get_camera_detection()
     merged_prediction = FallDetection(user_id=user.id, detected_img_url=None,
                                       mpu6050_res=mpu6050PredRes.mpu_best_class,
