@@ -12,6 +12,8 @@ class WSConnection:
     ERROR_TKN = "error-prediction"
 
 class CameraStatus:
+    CAM_ON = "on"
+    CAM_OFF = "off"
     PREDICT_ON = "on"
     PREDICT_OFF = "off"
 

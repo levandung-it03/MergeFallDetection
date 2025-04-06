@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
-from app.app_sql.models import Account
+from app.app_sql.models import Account, User
+
 
 def save(db: Session, account: Account):
     db.add(account)
@@ -10,6 +11,9 @@ def save(db: Session, account: Account):
 
 def findById(db: Session, accountId: int):
     return db.query(Account).filter(Account.id == accountId).first()
+
+def findByUserUserId(db: Session, userId: int):
+    return db.query(Account).join(User).filter(User.id == userId).first()
 
 def findByEmail(db: Session, email: str):
     return db.query(Account).filter(Account.email == email).first()

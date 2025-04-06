@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 from fastapi import APIRouter
 from starlette import status
 from starlette.responses import JSONResponse
-from fastapi import Request
 
 from app.dtos.AccountRoutesDto import NewAccount, AuthAccount
 from app.services import AccountServices
@@ -24,12 +23,19 @@ async def register(request: NewAccount):
     )
 
 @router.post(public_endpoints + "/v1/authenticate")
-async def register(request: Request, dto: AuthAccount):
-    auth_result = AccountServices.authenticate(request, dto)
-    if auth_result is None:
-        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={ "err_message": "Invalid credentials" })
-    else:
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={ "user": auth_result.to_dict() }
-        )
+async def authenticate(dto: AuthAccount):
+    try:
+        auth_result = AccountServices.authenticate(dto)
+        response = JSONResponse(status_code=status.HTTP_200_OK, content={"msg": "Successfully Authenticated"})
+        response.set_cookie(key="user_id", value=auth_result.id, max_age=24*3600, httponly=True, secure=False, samesite="lax")
+        return response
+    except Exception as e:
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={ "msg": "Failed to login" })
+
+@router.get(public_endpoints + "/v1/find-user-id-by-email")
+async def findUserIdByEmail(email: str):
+    try:
+        return JSONResponse(status_code=status.HTTP_200_OK, content={ "user_id": AccountServices.findUserIdByEmail(email) })
+    except Exception as e:
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={ "msg": "Wrong Email" })
+

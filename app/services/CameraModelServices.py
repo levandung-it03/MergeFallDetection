@@ -9,8 +9,9 @@ from app.enum.Enums import CameraStatus, VirtualDBFile
 from app.virtual_db import VirtualDBCrud
 
 # Load trained model
-model_url = os.path.join(os.getcwd(), "app/machines/camera-model.h5")
-model = load_model(model_url)
+# model_url = os.path.join(os.getcwd(), "app/machines/camera-model.h5")
+# model = load_model(model_url)
+model = None
 
 # Mediapipe Pose Setup
 mp_pose = mp.solutions.pose
@@ -40,7 +41,8 @@ class PoseStreamApp:
             if ret:
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 results = pose.process(frame_rgb)
-                if results.pose_landmarks and VirtualDBCrud.read_property(VirtualDBFile.USER, user.id) == CameraStatus.PREDICT_ON:
+                if (results.pose_landmarks
+                and VirtualDBCrud.read_property(VirtualDBFile.USER, user.id) == CameraStatus.PREDICT_ON):
                     print("Pose detected successfully")
                     mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
                     landmarks = []

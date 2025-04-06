@@ -10,3 +10,14 @@
 
 > mysql> CREATE DATABASE merge_fall_detection;
 > mysql> exit
+
+# RUN APPLICATION #
+
+- Run server in terminal with command line as (.venv) administration:
+> uvicorn app.main:app --host 0.0.0.0 --port 8000 --timeout-keep-alive 60
+- Open > Run "gui/tkinter_mpu_status.py" to use it.
+
+### Others Command ###
+> uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level debug
+
+> uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload

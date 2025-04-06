@@ -3,6 +3,9 @@ from dotenv import load_dotenv
 from fastapi import Request, Response, FastAPI
 from fastapi.responses import JSONResponse
 
+from app.app_sql.setup_database import SessionLocal
+from app.sql_crud import AccountCrud
+
 load_dotenv()
 
 admin_prefix = os.getenv("FAST_API_ADMIN_ENDPOINTS") or ""
@@ -18,23 +21,23 @@ class AuthInterceptor:
             print(f"Request: {request.method} {request.url}")
 
             if request.method != "OPTIONS" and (user_prefix in request.url.path or admin_prefix in request.url.path):
-                cur_session = getattr(request.state, "session", {})
+                db_session = SessionLocal()
+                user_id = request.cookies.get("user_id")
+                account = AccountCrud.findByUserUserId(db_session, user_id)
+                db_session.close()
 
-                email = cur_session.get("email")
-                role = cur_session.get("role")
-
-                if not email or not role:
+                if not user_id or not account.role:
                     return JSONResponse(
                         content={"message": "Invalid session or insufficient permissions"},
                         status_code=403)
 
-                role = str(role).upper()
+                account.role = str(account.role).upper()
 
-                if admin_prefix in request.url.path and role != "ADMIN":
+                if admin_prefix in request.url.path and account.role != "ADMIN":
                     return JSONResponse(
                         content={"message": "Invalid session or insufficient permissions"},
                         status_code=403)
-                if user_prefix in request.url.path and role != "USER":
+                if user_prefix in request.url.path and account.role != "USER":
                     return JSONResponse(
                         content={"message": "Invalid session or insufficient permissions"},
                         status_code=403)

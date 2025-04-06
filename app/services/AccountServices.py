@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import Request
+from fastapi import Request, Response
 
 from app.app_sql.models import User, Account
 from app.app_sql.setup_database import SessionLocal
@@ -23,20 +23,22 @@ def register(request: NewAccount):
     VirtualDBCrud.write_property(VirtualDBFile.USER, new_user.id, CameraStatus.PREDICT_OFF)
     return new_user
 
-def authenticate(request: Request, dto: AuthAccount):
+def authenticate(dto: AuthAccount):
     db_session = SessionLocal()
-
     try:
-        cur_account = AccountCrud.findByEmail(db_session, dto.email)
-        if not cur_account:
-            return None  # No account found
-
-        request.state.session = {
-            "email": cur_account.email,
-            "role": cur_account.role
-        }
-        return UserCrud.findByAccountId(db_session, cur_account.id)
-
+        user = UserCrud.findByAccountEmail(db_session, dto.email)
+        if not user:
+            raise Exception("User not found")
+        return user
     finally:
         db_session.close()
 
+
+def findUserIdByEmail(email):
+    db_session = SessionLocal()
+    user = UserCrud.findByAccountEmail(db_session, email)
+    db_session.close()
+    if not user:
+        return None
+    else:
+        return user.id

@@ -8,7 +8,7 @@ def read_property(filename, key):
     try:
         with open(full_filename, "r") as file:
             for line in file:
-                if line.startswith(key + "="):
+                if line.startswith(str(key) + "="):
                     return line.strip().split("=", 1)[1]
     except FileNotFoundError:
         print("File not found!")
@@ -28,7 +28,7 @@ def write_property(filename, key, value):
 
     with open(full_filename, "w") as file:
         for line in lines:
-            if line.startswith(key + "="):
+            if line.startswith(str(key) + "="):
                 file.write(f"{key}={value}\n")
                 found = True
             else:

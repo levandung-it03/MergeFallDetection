@@ -5,3 +5,6 @@ class Mpu6050Detection(BaseModel):
 
 class ChangedCameraStatus(BaseModel):
     status: str
+
+class TurnOnCameraPrediction(BaseModel):
+    user_id: str
