@@ -9,6 +9,8 @@ import queue
 from app.enum.Enums import CameraStatus, VirtualDBFile
 from app.virtual_db import VirtualDBCrud
 from app.services import DetectionServices
+import os
+
 
 frame_queue = queue.Queue(maxsize=10)
 
@@ -32,7 +34,8 @@ class PoseStreamApp:
         self.running = False
 
     def start_stream(self, user):
-        cap = cv2.VideoCapture(user.esp32_url)
+        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
+        cap = cv2.VideoCapture(user.esp32_url, cv2.CAP_FFMPEG)
 
         if not cap.isOpened() and self.running:
             print(f"Lỗi: Không mở được stream từ {user.esp32_url}")

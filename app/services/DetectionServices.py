@@ -17,13 +17,17 @@ import time
 import cv2
 
 frame_queue = Queue(maxsize=10)
-
 class CameraService:
+
     def __init__(self):
         self.pose_stream_app = PoseStreamApp()
         self.video_thread = None
+        self.camera_started = False
 
     def start_camera(self, request: Request):
+        if self.camera_started:
+            return
+        
         db_session = SessionLocal()
         user_id = request.cookies.get("user_id")
         user = UserCrud.findById(db_session, user_id)
@@ -32,6 +36,7 @@ class CameraService:
         self.video_thread = threading.Thread(target=self.pose_stream_app.start_stream, args=(user,), daemon=True)
         self.video_thread.start()
 
+        self.camera_started = True 
         self.pose_stream_app.detection_result = ""
 
         while True:
@@ -56,12 +61,19 @@ class CameraService:
         if self.video_thread and self.video_thread.is_alive():
             self.video_thread.join()
         self.pose_stream_app.detection_result = ""
+        self.camera_started = False
+
+    def is_camera_running(self):
+        return self.camera_started
 
     def get_camera_detection(self):
         if self.video_thread and self.pose_stream_app:
             if self.pose_stream_app.detection_result != "":
                 return self.pose_stream_app.detection_result
         return ""
+
+
+camera_service = CameraService()
 
 def handleMpu6050Prediction(mpu6050PredRes: Mpu6050Detection):
     db_session = SessionLocal()
