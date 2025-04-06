@@ -42,3 +42,12 @@ def findUserIdByEmail(email):
         return None
     else:
         return user.id
+
+def findUserByEmail(email):
+    db_session = SessionLocal()
+    user = UserCrud.findByAccountEmail(db_session, email)
+    db_session.close()
+    if not user:
+        return None
+    else:
+        return user.id

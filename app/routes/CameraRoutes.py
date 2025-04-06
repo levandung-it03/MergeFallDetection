@@ -2,7 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, Request
 import os
 from starlette import status
 from dotenv import load_dotenv
-from app.services import DetectionServices
+from app.services.DetectionServices import camera_service
 from starlette.responses import JSONResponse
 from fastapi.responses import StreamingResponse
 
@@ -18,15 +18,21 @@ router = APIRouter()
 # Route lấy video từ camera
 @router.get(user_endpoints + "/v1/video_feed")
 async def video_feed(request: Request):
-    return StreamingResponse(DetectionServices.CameraService().start_camera(request), media_type="multipart/x-mixed-replace; boundary=frame")
+    return StreamingResponse(camera_service.start_camera(request), media_type="multipart/x-mixed-replace; boundary=frame")
 
 
 @router.get(public_endpoints + "/v1/prediction")
-async def prediction(background_tasks: BackgroundTasks):
-    background_tasks.add_task(DetectionServices.CameraService().get_camera_detection)
+async def prediction():
+    if not camera_service.is_camera_running():
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"error": "Camera is not running yet."}
+        )
+    
+    label = camera_service.get_camera_detection()
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content={"label": "Prediction is being processed"}
+        content={"label": label}
     )
 
 # @router.post(user_endpoints + "/v1/start")
