@@ -69,6 +69,7 @@ class CameraService:
             detection_result = self.pose_stream_app.detection_result # Đợi cho đến khi có kết quả phát hiện
             while detection_result == "":
                 detection_result = self.pose_stream_app.detection_result    # Đợi cho đến khi có kết quả phát hiện
+                time.sleep(0.1)  # Reduce CPU usage by adding a short sleep
             # Reset detection result after getting it
             self.pose_stream_app.detection_result = ""
             return detection_result
@@ -81,10 +82,12 @@ def handleMpu6050Prediction(mpu6050PredRes: Mpu6050Detection):
     db_session = SessionLocal()
 
     user = UserCrud.findByAccountId(db_session, mpu6050PredRes.user_id)
-
     # Nếu camera chưa được bật, bật camera và chờ
     if not camera_service.is_camera_running():
-        camera_service.start_camera(user)
+        class MockRequest:
+            cookies = {"user_id": str(user.id)}
+        mock_request = MockRequest()
+        camera_service.start_camera(mock_request)
 
     time.sleep(4)  # Chờ 4 giây để camera có thể bắt đầu phát hiện đúng theo thời gian được ra tín hiệu (có thể điều chỉnh lại sau này)
     camera_prediction = camera_service.get_camera_detection()
