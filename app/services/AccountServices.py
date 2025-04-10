@@ -51,3 +51,23 @@ def findUserByEmail(email):
         return None
     else:
         return user.id
+
+def findUserByCookie(request: Request):
+    user_id = request.cookies.get("user_id")
+    db_session = SessionLocal()
+    user = UserCrud.findById(db_session, user_id)
+    db_session.close()
+    if not user:
+        return None
+    else:
+        return user
+    
+def changeESP32Url(request: Request):
+    db_session = SessionLocal()
+    user_id = request.cookies.get("user_id")
+
+    updated_user = User(id=user_id ,full_name=request.full_name, esp32_url=request.esp32_url)
+    updated_user = UserCrud.updateById(db_session, updated_user)
+
+    db_session.close()
+    return updated_user

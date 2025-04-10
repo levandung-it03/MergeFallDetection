@@ -27,7 +27,7 @@ async def authenticate(dto: AuthAccount):
     try:
         auth_result = AccountServices.authenticate(dto)
         response = JSONResponse(status_code=status.HTTP_200_OK, content={"msg": "Successfully Authenticated"})
-        response.set_cookie(key="user_id", value=auth_result.id, max_age=24*3600, httponly=True, secure=False, samesite="lax")
+        response.set_cookie(key="user_id", value=auth_result.id, max_age=24*3600, httponly=True, secure=True, samesite="None")
         return response
     except Exception as e:
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={ "msg": "Failed to login" })
