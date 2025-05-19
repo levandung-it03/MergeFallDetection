@@ -28,6 +28,16 @@ def updateById(db: Session, fallDetection: FallDetection):
     db.refresh(raw)
     return fallDetection
 
+
+def updateCamPredResById(db: Session, detectId: int, cam_res: str):
+    raw = db.query(FallDetection).filter(FallDetection.id == detectId).first()
+    if raw is None:
+        return None
+    raw.camera_res = cam_res
+    db.commit()
+    db.refresh(raw)
+    return raw
+
 def findAll(db: Session):
     return db.query(FallDetection).all()
 
