@@ -10,6 +10,38 @@ from app.enum.Enums import CameraStatus, VirtualDBFile
 from app.virtual_db import VirtualDBCrud
 from app.services import DetectionServices
 import os
+import requests
+import re
+
+def read_mjpeg_stream(url):
+    stream = requests.get(url, stream=True)
+    boundary = b"--frame"
+    buffer = b""
+
+    for chunk in stream.iter_content(chunk_size=4096):
+        buffer += chunk
+        while True:
+            start = buffer.find(boundary)
+            end = buffer.find(boundary, start + len(boundary))
+            if start == -1 or end == -1:
+                break
+
+            part = buffer[start + len(boundary):end]
+            buffer = buffer[end:]
+
+            header_end = part.find(b"\r\n\r\n")
+            if header_end == -1:
+                continue
+
+            headers = part[:header_end].decode(errors="ignore")
+            body = part[header_end+4:]
+
+            # Tìm timestamp trong header nếu có
+            match = re.search(r"X-Timestamp:\s*(\d+)", headers)
+            timestamp = int(match.group(1)) if match else None
+
+            img = cv2.imdecode(np.frombuffer(body, np.uint8), cv2.IMREAD_COLOR)
+            yield img, timestamp
 
 
 frame_queue = queue.Queue(maxsize=10)
@@ -24,6 +56,17 @@ pose = mp_pose.Pose()
 mp_drawing = mp.solutions.drawing_utils
 labels = ["Falling", "Sitting", "Standing"]
 
+def extract_jpeg_comment(jpeg_bytes):
+    # Duyệt qua bytes để tìm marker 0xFFFE (JPEG comment)
+    i = 2  # Bỏ qua SOI (0xFFD8)
+    while i < len(jpeg_bytes) - 4:
+        if jpeg_bytes[i] == 0xFF and jpeg_bytes[i + 1] == 0xFE:
+            length = (jpeg_bytes[i + 2] << 8) + jpeg_bytes[i + 3]
+            comment = jpeg_bytes[i + 4:i + 4 + length - 2]
+            return comment.decode('utf-8')
+        i += 1
+    return None
+
 class PoseStreamApp:
     def __init__(self):
         self.result_label = None
@@ -34,57 +77,53 @@ class PoseStreamApp:
         self.running = False
 
     def start_stream(self, user):
-        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
-        cap = cv2.VideoCapture(user.esp32_url, cv2.CAP_FFMPEG)
+        self.running = True
 
-        if not cap.isOpened() and self.running:
-            print(f"Lỗi: Không mở được stream từ {user.esp32_url}")
-            self.result_label.setText("Lỗi: Không mở được stream")
-            return
-
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if ret:
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                results = pose.process(frame_rgb)
-
-                if not frame_queue.full():
-                    DetectionServices.frame_queue.put(frame)
-
-                if (results.pose_landmarks
-                and VirtualDBCrud.read_property(VirtualDBFile.USER, user.id) == CameraStatus.PREDICT_ON):
-                    print("Pose detected successfully")
-                    mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
-                    
-                    landmarks = []
-                    for lm in results.pose_landmarks.landmark:
-                        landmarks.append(lm.x)
-                        landmarks.append(lm.y)
-                        landmarks.append(lm.z)
-                        landmarks.append(lm.visibility)
-
-                    while len(landmarks) < self.num_features:
-                        landmarks.append(0.0)
-                    landmarks = np.array(landmarks[:self.num_features])
-                    '''Save sequence of lank-marks until it reach no_of_time_steps'''
-                    self.sequence.append(landmarks)
-                    if len(self.sequence) > self.no_of_time_steps:
-                        self.sequence.pop(0)
-                    if len(self.sequence) == self.no_of_time_steps:
-                        prediction = model.predict(np.expand_dims(self.sequence, axis=0))
-                        label = np.argmax(prediction)
-                        self.detection_result = labels[label]
-
-                        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-                        print(f"[{timestamp}] Phát hiện: {self.detection_result}")
-                    print("Status: Online - Detection: Online")
-                else:
-                    print("Status: Online - Detection: Offline")
-            else:
-                print("Lỗi: Không đọc được frame từ stream")
+        for frame, ts in read_mjpeg_stream(user.esp32_url):
+            if not self.running:
                 break
-        cap.release()
+
+            if ts:
+                print("📸 Timestamp từ ESP32:", ts)
+            else:
+                print("❌ Không tìm thấy timestamp")
+
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = pose.process(frame_rgb)
+
+            if not frame_queue.full():
+                DetectionServices.frame_queue.put(frame)
+
+            if (results.pose_landmarks and 
+                VirtualDBCrud.read_property(VirtualDBFile.USER, user.id) == CameraStatus.PREDICT_ON):
+                print("Pose detected successfully")
+                mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
+
+                landmarks = []
+                for lm in results.pose_landmarks.landmark:
+                    landmarks.extend([lm.x, lm.y, lm.z, lm.visibility])
+
+                while len(landmarks) < self.num_features:
+                    landmarks.append(0.0)
+                landmarks = np.array(landmarks[:self.num_features])
+                self.sequence.append(landmarks)
+
+                if len(self.sequence) > self.no_of_time_steps:
+                    self.sequence.pop(0)
+                if len(self.sequence) == self.no_of_time_steps:
+                    prediction = model.predict(np.expand_dims(self.sequence, axis=0))
+                    label = np.argmax(prediction)
+                    self.detection_result = labels[label]
+
+                    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                    print(f"[{timestamp}] Phát hiện: {self.detection_result}")
+                print("Status: Online - Detection: Online")
+            else:
+                print("Status: Online - Detection: Offline")
+
         print("Stream đã kết thúc.")
+
 
     def stop_stream(self):
         self.running = False
+        self.sequence.clear()

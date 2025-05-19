@@ -8,7 +8,7 @@ from app.routes.AccountRoutes import NewAccount, AuthAccount
 
 from app.sql_crud import AccountCrud, UserCrud
 from app.virtual_db import VirtualDBCrud
-
+from app.dtos.AccountRoutesDto import UpdateAccount
 
 def register(request: NewAccount):
     db_session = SessionLocal()
@@ -51,3 +51,23 @@ def findUserByEmail(email):
         return None
     else:
         return user.id
+
+def findUserByCookie(request: Request):
+    user_id = request.cookies.get("user_id")
+    db_session = SessionLocal()
+    user = UserCrud.findById(db_session, user_id)
+    db_session.close()
+    if not user:
+        return None
+    else:
+        return user
+    
+def changeESP32Url(data: UpdateAccount, request: Request):
+    db_session = SessionLocal()
+    user_id = request.cookies.get("user_id")
+
+    updated_user = User(id=user_id,account_id=data.account_id,full_name=data.full_name, esp32_url=data.esp32_url)
+    updated_user = UserCrud.updateById(db_session, updated_user)
+
+    db_session.close()
+    return updated_user
