@@ -1,3 +1,4 @@
+import logging
 from sqlalchemy import Integer, Column, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
@@ -32,16 +33,18 @@ class User(Base):
     esp32_url = Column(String(255), nullable=False)
 
     account_id = Column(Integer, ForeignKey("account.id", ondelete="CASCADE"), unique=True, nullable=False)
-    account = relationship("Account", back_populates="user")
+    account = relationship("Account", back_populates="user", lazy='joined')
 
     fall_detections = relationship("FallDetection", back_populates="user", cascade="all, delete")
 
     def to_dict(self):
+        logging.info(f"Account: {self.account}")
         return {
             "id": self.id,
             "full_name": self.full_name,
             "account_id": self.account_id,
             "esp32_url": self.esp32_url,
+            "email": self.account.email if self.account else None
         }
 
 class FallDetection(Base):

@@ -54,6 +54,7 @@ async def findUserByCookie(request: Request):
                     "full_name": user.full_name,
                     "esp32_url": user.esp32_url,
                     "account_id": user.account_id,
+                    "email": user.account.email
                 }
             }
         )
