@@ -18,8 +18,17 @@ router = APIRouter()
 # Route lấy video từ camera
 @router.get(user_endpoints + "/v1/video_feed")
 async def video_feed(request: Request):
-    return StreamingResponse(camera_service.start_camera(request), media_type="multipart/x-mixed-replace; boundary=frame")
+    return StreamingResponse(camera_service.stream_camera(request), media_type="multipart/x-mixed-replace; boundary=frame")
 
+@router.post(user_endpoints + "/v1/start")
+def start_processing(request: Request):
+    camera_service.start_camera(request)
+    return {"status": "started"}
+
+@router.post(user_endpoints + "/v1/stop")
+async def stop_processing(request: Request):
+    camera_service.stop_camera(request)
+    return {"status": "stopped"}
 
 @router.get(public_endpoints + "/v1/prediction")
 async def prediction():
@@ -28,19 +37,11 @@ async def prediction():
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"error": "Camera is not running yet."}
         )
-    
-    label = camera_service.get_camera_detection()
+
+    label = await camera_service.get_camera_detection()
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content={"label": label}
+        content={"label": label or "No detection yet"}
     )
 
-# @router.post(user_endpoints + "/v1/start")
-# def start_processing():
-#     CameraServices.start_processing()
-#     return {"status": "started"}
 
-# @router.post(user_endpoints + "/v1/stop")
-# def stop_processing():
-#     CameraServices.stop_processing()
-#     return {"status": "stopped"}
