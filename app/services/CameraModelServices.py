@@ -92,7 +92,7 @@ class PoseStreamApp:
             results = pose.process(frame_rgb)
 
             if not frame_queue.full():
-                DetectionServices.frame_queue.put(frame)
+                DetectionServices.frame_queue.put(frame, timeout=0.01)
 
             if (results.pose_landmarks and 
                 VirtualDBCrud.read_property(VirtualDBFile.USER, user.id) == CameraStatus.PREDICT_ON):
