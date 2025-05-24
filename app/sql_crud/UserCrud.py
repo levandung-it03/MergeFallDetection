@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.app_sql.models import User, Account
+from sqlalchemy.orm import joinedload
 
 
 def save(db: Session, user: User):
@@ -10,7 +11,7 @@ def save(db: Session, user: User):
     return user
 
 def findById(db: Session, userId: int):
-    return db.query(User).filter(User.id == userId).first()
+    return db.query(User).options(joinedload(User.account)).filter(User.id == userId).first()
 
 def findByAccountId(db: Session, accountId: int):
     return db.query(User).filter(User.account_id == accountId).first()

@@ -5,6 +5,7 @@ import mediapipe as mp
 from keras._tf_keras.keras.models import load_model
 import time
 import queue
+import threading
 
 from app.enum.Enums import CameraStatus, VirtualDBFile
 from app.virtual_db import VirtualDBCrud
@@ -12,6 +13,12 @@ from app.services import DetectionServices
 import os
 import requests
 import re
+
+from app.services.email_sender import send_email
+
+SENDER_EMAIL = "n21dccn013@student.ptithcm.edu.vn"
+RECEIVER_EMAIL = "n21dccn013@student.ptithcm.edu.vn"
+EMAIL_PASSWORD = "mmay jfmj dgrc qxpq"
 
 def read_mjpeg_stream(url):
     stream = requests.get(url, stream=True)
@@ -75,6 +82,7 @@ class PoseStreamApp:
         self.num_features = 132  # Ensure input shape matches model
         self.detection_result = ""
         self.running = False
+        self.last_email_time = 0
 
     def start_stream(self, user):
         self.running = True
@@ -114,6 +122,17 @@ class PoseStreamApp:
                     prediction = model.predict(np.expand_dims(self.sequence, axis=0))
                     label = np.argmax(prediction)
                     self.detection_result = labels[label]
+
+                    if self.detection_result == "Falling":
+                        current_time = time.time()
+                        if current_time - self.last_email_time >= 30:
+                            self.last_email_time = current_time  # Cập nhật thời gian gửi email
+                            
+                            # Gửi email cảnh báo, KHÔNG lưu ảnh
+                            email_thread = threading.Thread(target=send_email, args=(frame, SENDER_EMAIL, user.account.email, EMAIL_PASSWORD))
+                            email_thread.start()
+                        else:
+                            print("⏳ Chưa đủ 30 giây, bỏ qua gửi email!")
 
                     timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
                     print(f"[{timestamp}] Phát hiện: {self.detection_result}")
