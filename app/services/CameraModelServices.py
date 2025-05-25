@@ -50,8 +50,18 @@ def read_mjpeg_stream(url):
             img = cv2.imdecode(np.frombuffer(body, np.uint8), cv2.IMREAD_COLOR)
             yield img, timestamp
 
-
-frame_queue = queue.Queue(maxsize=10)
+def get_single_frame(url):
+    try:
+        response = requests.get(url + "/capture", timeout=5)
+        if response.status_code == 200:
+            img = cv2.imdecode(np.frombuffer(response.content, np.uint8), cv2.IMREAD_COLOR)
+            return img
+        else:
+            print("❌ Lỗi lấy ảnh:", response.status_code)
+            return None
+    except Exception as e:
+        print("❌ Exception khi lấy ảnh:", e)
+        return None
 
 # Load trained model
 model_url = os.path.join(os.getcwd(), "app/machines/camera-model.h5")
@@ -87,20 +97,25 @@ class PoseStreamApp:
     def start_stream(self, user):
         self.running = True
 
-        for frame, ts in read_mjpeg_stream(user.esp32_url):
-            if not self.running:
-                break
+        while self.running:
+            frame = get_single_frame(user.esp32_url)
+            ts = int(time.time() * 1000)  # Lấy timestamp hiện tại, vì server không trả trong capture
+            if frame is None:
+                print("❌ Không lấy được frame, thử lại sau...")
+                time.sleep(0.1)
+                continue
 
-            if ts:
-                print("📸 Timestamp từ ESP32:", ts)
-            else:
-                print("❌ Không tìm thấy timestamp")
+            print("📸 Timestamp:", ts)
 
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = pose.process(frame_rgb)
 
-            if not frame_queue.full():
-                DetectionServices.frame_queue.put(frame, timeout=0.01)
+            try:
+                if DetectionServices.frame_queue.full():
+                    DetectionServices.frame_queue.get_nowait()
+                DetectionServices.frame_queue.put_nowait(frame)
+            except queue.Full:
+                pass
 
             if (results.pose_landmarks and 
                 VirtualDBCrud.read_property(VirtualDBFile.USER, user.id) == CameraStatus.PREDICT_ON):
@@ -126,19 +141,19 @@ class PoseStreamApp:
                     if self.detection_result == "Falling":
                         current_time = time.time()
                         if current_time - self.last_email_time >= 30:
-                            self.last_email_time = current_time  # Cập nhật thời gian gửi email
-                            
-                            # Gửi email cảnh báo, KHÔNG lưu ảnh
+                            self.last_email_time = current_time
                             email_thread = threading.Thread(target=send_email, args=(frame, SENDER_EMAIL, user.account.email, EMAIL_PASSWORD))
                             email_thread.start()
                         else:
                             print("⏳ Chưa đủ 30 giây, bỏ qua gửi email!")
 
-                    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-                    print(f"[{timestamp}] Phát hiện: {self.detection_result}")
+                    timestamp_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                    print(f"[{timestamp_str}] Phát hiện: {self.detection_result}")
                 print("Status: Online - Detection: Online")
             else:
                 print("Status: Online - Detection: Offline")
+
+            time.sleep(0.1)  # Tốc độ lấy frame, điều chỉnh tùy ý
 
         print("Stream đã kết thúc.")
 
