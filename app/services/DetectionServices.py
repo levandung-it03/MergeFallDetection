@@ -38,20 +38,21 @@ class CameraService:
         self.camera_started = True 
         self.pose_stream_app.detection_result = ""
 
-    def stream_camera(self, request: Request):
+    def stream_camera(self):
         while True:
-            if not frame_queue.empty():
-                frame = frame_queue.get()
-                try:
+            try:
+                if not frame_queue.empty():
+                    frame = frame_queue.get()
                     ret, jpeg = cv2.imencode('.jpg', frame)
                     if ret:
                         frame_bytes = jpeg.tobytes()
-                        yield (b'--frame\r\n'
-                            b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-                except Exception as e:
-                    logging.error(f"Error encoding frame: {str(e)}")
-            time.sleep(0.01)
-
+                        yield (
+                            b"--frame\r\n"
+                            b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
+                        )
+            except Exception as e:
+                logging.exception("Streaming error")
+            time.sleep(0.05)
 
     def stop_camera(self, request: Request):
         self.pose_stream_app.stop_stream()
@@ -75,7 +76,6 @@ class CameraService:
                 await asyncio.sleep(interval)
                 waited += interval
         return ""
-
 
 camera_service = CameraService()
 
