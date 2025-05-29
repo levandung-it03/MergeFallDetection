@@ -14,6 +14,7 @@ from app.virtual_db import VirtualDBCrud
 from queue import Queue
 import time
 import cv2
+import asyncio
 
 frame_queue = Queue(maxsize=10)
 class CameraService:
@@ -37,22 +38,21 @@ class CameraService:
         self.camera_started = True 
         self.pose_stream_app.detection_result = ""
 
+    def stream_camera(self):
         while True:
-            if not frame_queue.empty():
-                frame = frame_queue.get()  # Lấy frame từ hàng đợi
-                try:
-                    # Kiểm tra và gửi frame đã xử lý
+            try:
+                if not frame_queue.empty():
+                    frame = frame_queue.get()
                     ret, jpeg = cv2.imencode('.jpg', frame)
                     if ret:
                         frame_bytes = jpeg.tobytes()
-                        yield (b'--frame\r\n'
-                            b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-                except Exception as e:
-                    logging.error(f"Error encoding frame: {str(e)}")
-                    continue
-
-            # Giảm độ trễ giữa các frame (có thể sử dụng time.sleep hoặc tinh chỉnh tốc độ lấy frame)
-            time.sleep(0.01) 
+                        yield (
+                            b"--frame\r\n"
+                            b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
+                        )
+            except Exception as e:
+                logging.exception("Streaming error")
+            time.sleep(0.05)
 
     def stop_camera(self, request: Request):
         self.pose_stream_app.stop_stream()
@@ -64,16 +64,18 @@ class CameraService:
     def is_camera_running(self):
         return self.camera_started
 
-    def get_camera_detection(self):
+    async def get_camera_detection(self, timeout_seconds=5):
         if self.video_thread and self.pose_stream_app:
-            detection_result = self.pose_stream_app.detection_result # Đợi cho đến khi có kết quả phát hiện
-            while detection_result == "":
-                detection_result = self.pose_stream_app.detection_result    # Đợi cho đến khi có kết quả phát hiện
-            # Reset detection result after getting it
-            self.pose_stream_app.detection_result = ""
-            return detection_result
+            waited = 0
+            interval = 0.1  # Kiểm tra mỗi 100ms
+            while waited < timeout_seconds:
+                detection_result = self.pose_stream_app.detection_result
+                if detection_result != "":
+                    self.pose_stream_app.detection_result = ""
+                    return detection_result
+                await asyncio.sleep(interval)
+                waited += interval
         return ""
-
 
 camera_service = CameraService()
 
