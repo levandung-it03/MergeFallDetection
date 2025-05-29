@@ -1,2 +1,5 @@
 5=on
 6=off
+2=off
+3=off
+1=on
