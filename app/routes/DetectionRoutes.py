@@ -9,6 +9,7 @@ from starlette.responses import JSONResponse
 from app.dtos.DetectionRoutesDto import Mpu6050Detection, TurnOnCameraPrediction
 from app.routes.AccountRoutes import public_endpoints
 from app.services import DetectionServices
+from app.services.DetectionServices import latest_prediction_result
 
 load_dotenv()
 admin_endpoints = str(os.getenv("FAST_API_ADMIN_ENDPOINTS"))
@@ -24,6 +25,11 @@ async def mpu6050Detection(dto: Mpu6050Detection):
         content={ "msg": "Received Data" }
     )
 
+@router.get(public_endpoints + "/latest-merged-result")
+def get_latest_result():
+    if latest_prediction_result:
+        return latest_prediction_result.to_dict()
+    return JSONResponse(content={"msg": "Chưa có kết quả"}, status_code=204)
 
 # This Route belongs to MPU6050.
 @router.post(public_endpoints + "/v1/on-cam-pred-sts")
