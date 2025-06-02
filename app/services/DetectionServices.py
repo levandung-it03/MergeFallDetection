@@ -79,7 +79,10 @@ class CameraService:
 
 camera_service = CameraService()
 
+latest_prediction_result = None
+
 def handleMpu6050Prediction(mpu6050PredRes: Mpu6050Detection):
+    global latest_prediction_result
     db_session = SessionLocal()
 
     user = UserCrud.findByAccountId(db_session, mpu6050PredRes.user_id)
@@ -98,8 +101,21 @@ def handleMpu6050Prediction(mpu6050PredRes: Mpu6050Detection):
     if camera_prediction != "" and mpu6050PredRes.mpu_best_class != "":
         db_session = SessionLocal()
         FallDetectionCrud.save(db_session, merged_prediction)
+        latest_prediction_result = merged_prediction
 
     db_session.close()
+
+def getLatestPredictionForUser(user_id: int) -> FallDetection:
+    db_session = SessionLocal()
+    result = (
+        db_session.query(FallDetection)
+        .filter(FallDetection.user_id == user_id)
+        .order_by(FallDetection.created_time.desc())
+        .first()
+    )
+    db_session.close()
+    return result
+
 
 def turnOnCameraPrediction(request: TurnOnCameraPrediction):
     VirtualDBCrud.write_property(VirtualDBFile.USER, request.user_id, CameraStatus.PREDICT_ON)
