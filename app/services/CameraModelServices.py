@@ -88,7 +88,7 @@ class PoseStreamApp:
     def __init__(self):
         self.result_label = None
         self.sequence = []
-        self.no_of_time_steps = 100
+        self.no_of_time_steps = 10
         self.num_features = 132  # Ensure input shape matches model
         self.detection_result = ""
         self.running = False
@@ -111,11 +111,17 @@ class PoseStreamApp:
             results = pose.process(frame_rgb)
 
             try:
-                if DetectionServices.frame_queue.full():
-                    DetectionServices.frame_queue.get_nowait()
+                # Loại bỏ frame cũ nếu có
+                DetectionServices.frame_queue.get_nowait()
+            except queue.Empty:
+                pass
+
+            try:
+                # Đưa frame mới vào queue
                 DetectionServices.frame_queue.put_nowait(frame)
             except queue.Full:
                 pass
+
 
             if (results.pose_landmarks and 
                 VirtualDBCrud.read_property(VirtualDBFile.USER, user.id) == CameraStatus.PREDICT_ON):
@@ -153,7 +159,7 @@ class PoseStreamApp:
             else:
                 print("Status: Online - Detection: Offline")
 
-            time.sleep(0.1)  # Tốc độ lấy frame, điều chỉnh tùy ý
+            time.sleep(0.05)  # Tốc độ lấy frame, điều chỉnh tùy ý
 
         print("Stream đã kết thúc.")
 
