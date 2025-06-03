@@ -20,7 +20,6 @@ def updateById(db: Session, fallDetection: FallDetection):
     if raw is None:
         return None
     raw.user_id = fallDetection.user_id
-    raw.detected_img_url = fallDetection.detected_img_url
     raw.mpu6050_res = fallDetection.mpu6050_res
     raw.camera_res = fallDetection.camera_res
     raw.created_time = fallDetection.created_time

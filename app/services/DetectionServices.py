@@ -26,7 +26,7 @@ class CameraService:
     def start_camera(self, request: Request):
         if self.camera_started:
             return
-        
+
         db_session = SessionLocal()
         user_id = request.cookies.get("user_id")
         user = UserCrud.findById(db_session, user_id)
@@ -35,7 +35,7 @@ class CameraService:
         self.video_thread = threading.Thread(target=self.pose_stream_app.start_stream, args=(user,), daemon=True)
         self.video_thread.start()
 
-        self.camera_started = True 
+        self.camera_started = True
         self.pose_stream_app.detection_result = ""
 
     def stream_camera(self):
@@ -79,26 +79,25 @@ class CameraService:
 
 camera_service = CameraService()
 
-def handleMpu6050Prediction(mpu6050PredRes: Mpu6050Detection):
+async def handleMpu6050Prediction(request: Request, mpu6050PredRes: Mpu6050Detection):
     db_session = SessionLocal()
 
     user = UserCrud.findByAccountId(db_session, mpu6050PredRes.user_id)
-
     # Nếu camera chưa được bật, bật camera và chờ
     if not camera_service.is_camera_running():
-        camera_service.start_camera(user)
+        camera_service.start_camera(request)
 
+    print("WAITING 4 SECONDS.....................................")
     time.sleep(4)  # Chờ 4 giây để camera có thể bắt đầu phát hiện đúng theo thời gian được ra tín hiệu (có thể điều chỉnh lại sau này)
-    camera_prediction = camera_service.get_camera_detection()
-    merged_prediction = FallDetection(user_id=user.id, detected_img_url=None,
+    camera_prediction = await camera_service.get_camera_detection()   # None
+    merged_prediction = FallDetection(user_id=user.id,
                                       mpu6050_res=mpu6050PredRes.mpu_best_class,
                                       camera_res=camera_prediction,
                                       created_time=datetime.now())
-    print(merged_prediction.to_dict())
+    print("PREDICTION RESULT:", merged_prediction.to_dict())
     if camera_prediction != "" and mpu6050PredRes.mpu_best_class != "":
-        db_session = SessionLocal()
         FallDetectionCrud.save(db_session, merged_prediction)
-
+    VirtualDBCrud.write_property(VirtualDBFile.USER, user.id, CameraStatus.PREDICT_OFF) # Off prediction-mode
     db_session.close()
 
 def turnOnCameraPrediction(request: TurnOnCameraPrediction):

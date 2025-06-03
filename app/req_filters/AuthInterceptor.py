@@ -22,17 +22,24 @@ class AuthInterceptor:
 
             if request.method != "OPTIONS" and (user_prefix in request.url.path or admin_prefix in request.url.path):
                 db_session = SessionLocal()
+
                 user_id = request.cookies.get("user_id")
+                if user_id is None:
+                    user_id = request.headers.get("X-User-Id")
+                print(user_id)
+                if not user_id:
+                    return JSONResponse(
+                        content={"message": "Invalid session or insufficient permissions"},
+                        status_code=403)
+
                 account = AccountCrud.findByUserUserId(db_session, user_id)
                 db_session.close()
-
-                if not user_id or not account.role:
+                if not account.role:
                     return JSONResponse(
                         content={"message": "Invalid session or insufficient permissions"},
                         status_code=403)
 
                 account.role = str(account.role).upper()
-
                 if admin_prefix in request.url.path and account.role != "ADMIN":
                     return JSONResponse(
                         content={"message": "Invalid session or insufficient permissions"},

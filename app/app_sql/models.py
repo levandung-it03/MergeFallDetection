@@ -51,7 +51,6 @@ class FallDetection(Base):
     __tablename__ = "fall_detection"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    detected_img_url = Column(String(255))
     mpu6050_res = Column(String(20), nullable=False)
     camera_res = Column(String(20), nullable=False)
     created_time = Column(DateTime)
@@ -62,7 +61,6 @@ class FallDetection(Base):
     def to_dict(self):
         return {
             "id": self.id,
-            "detected_img_url": self.detected_img_url,
             "mpu6050_res": self.mpu6050_res,
             "camera_res": self.camera_res,
             "created_time": self.created_time,
