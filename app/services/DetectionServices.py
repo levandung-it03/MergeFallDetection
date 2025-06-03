@@ -17,6 +17,8 @@ import cv2
 import asyncio
 
 frame_queue = Queue(maxsize=10)
+
+
 class CameraService:
     def __init__(self):
         self.pose_stream_app = PoseStreamApp()
@@ -47,8 +49,8 @@ class CameraService:
                     if ret:
                         frame_bytes = jpeg.tobytes()
                         yield (
-                            b"--frame\r\n"
-                            b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
+                                b"--frame\r\n"
+                                b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
                         )
             except Exception as e:
                 logging.exception("Streaming error")
@@ -77,28 +79,49 @@ class CameraService:
                 waited += interval
         return ""
 
+
 camera_service = CameraService()
 
-async def handleMpu6050Prediction(request: Request, mpu6050PredRes: Mpu6050Detection):
+latest_prediction_result = None
+
+
+def handleMpu6050Prediction(mpu6050PredRes: Mpu6050Detection):
+    global latest_prediction_result
     db_session = SessionLocal()
 
     user = UserCrud.findByAccountId(db_session, mpu6050PredRes.user_id)
+
     # Nếu camera chưa được bật, bật camera và chờ
     if not camera_service.is_camera_running():
-        camera_service.start_camera(request)
+        camera_service.start_camera(user)
 
-    print("WAITING 4 SECONDS.....................................")
-    time.sleep(4)  # Chờ 4 giây để camera có thể bắt đầu phát hiện đúng theo thời gian được ra tín hiệu (có thể điều chỉnh lại sau này)
-    camera_prediction = await camera_service.get_camera_detection()   # None
-    merged_prediction = FallDetection(user_id=user.id,
+    time.sleep(
+        4)  # Chờ 4 giây để camera có thể bắt đầu phát hiện đúng theo thời gian được ra tín hiệu (có thể điều chỉnh lại sau này)
+    camera_prediction = camera_service.get_camera_detection()
+    merged_prediction = FallDetection(user_id=user.id, detected_img_url=None,
                                       mpu6050_res=mpu6050PredRes.mpu_best_class,
                                       camera_res=camera_prediction,
                                       created_time=datetime.now())
-    print("PREDICTION RESULT:", merged_prediction.to_dict())
+    print(merged_prediction.to_dict())
     if camera_prediction != "" and mpu6050PredRes.mpu_best_class != "":
+        db_session = SessionLocal()
         FallDetectionCrud.save(db_session, merged_prediction)
-    VirtualDBCrud.write_property(VirtualDBFile.USER, user.id, CameraStatus.PREDICT_OFF) # Off prediction-mode
+        latest_prediction_result = merged_prediction
+
     db_session.close()
+
+
+def getLatestPredictionForUser(user_id: int) -> FallDetection:
+    db_session = SessionLocal()
+    result = (
+        db_session.query(FallDetection)
+        .filter(FallDetection.user_id == user_id)
+        .order_by(FallDetection.created_time.desc())
+        .first()
+    )
+    db_session.close()
+    return result
+
 
 def turnOnCameraPrediction(request: TurnOnCameraPrediction):
     VirtualDBCrud.write_property(VirtualDBFile.USER, request.user_id, CameraStatus.PREDICT_ON)
@@ -109,11 +132,11 @@ def changeCameraStatus(request: Request):
 
     # Check current camera status by service (Thread's Properties)
     # if cam_sts == CameraStatus.CAM_ON:
-        # Turn off cam by service
-        # return CameraStatus.CAM_OFF
+    # Turn off cam by service
+    # return CameraStatus.CAM_OFF
     # else:
-        # Turn on cam by service
-        # return CameraStatus.CAM_ON
+    # Turn on cam by service
+    # return CameraStatus.CAM_ON
 
 
 def getCameraCurrentStatus(request: Request):
