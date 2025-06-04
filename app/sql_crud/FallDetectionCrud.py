@@ -40,6 +40,16 @@ def updateCamPredResById(db: Session, detectId: int, cam_res: str):
 def findAll(db: Session):
     return db.query(FallDetection).all()
 
+
+def findAllTop30ByUserId(db: Session, userId: int):
+    return (
+        db.query(FallDetection)
+        .filter(FallDetection.user_id == userId)
+        .order_by(FallDetection.created_time.desc())
+        .limit(30)
+        .all()
+    )
+
 def findAllByFallDetectionId(db: Session, fallDetectionId: int):
     return db.query(FallDetection).filter(FallDetection.id == fallDetectionId).all()
 

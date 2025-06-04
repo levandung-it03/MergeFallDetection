@@ -32,6 +32,9 @@ class CameraService:
         db_session = SessionLocal()
         user_id = request.cookies.get("user_id")
         user = UserCrud.findById(db_session, user_id)
+        if not user:
+            return
+
         db_session.close()
 
         self.video_thread = threading.Thread(target=self.pose_stream_app.start_stream, args=(user,), daemon=True)
@@ -66,7 +69,7 @@ class CameraService:
     def is_camera_running(self):
         return self.camera_started
 
-    async def get_camera_detection(self, timeout_seconds=5):
+    async def get_camera_detection(self, timeout_seconds=15):
         if self.video_thread and self.pose_stream_app:
             waited = 0
             interval = 0.1  # Kiểm tra mỗi 100ms
@@ -85,7 +88,7 @@ camera_service = CameraService()
 latest_prediction_result = None
 
 
-def handleMpu6050Prediction(mpu6050PredRes: Mpu6050Detection):
+async def handleMpu6050Prediction(request: Request, mpu6050PredRes: Mpu6050Detection):
     global latest_prediction_result
     db_session = SessionLocal()
 
@@ -93,12 +96,12 @@ def handleMpu6050Prediction(mpu6050PredRes: Mpu6050Detection):
 
     # Nếu camera chưa được bật, bật camera và chờ
     if not camera_service.is_camera_running():
-        camera_service.start_camera(user)
+        camera_service.start_camera(request)
 
     time.sleep(
         4)  # Chờ 4 giây để camera có thể bắt đầu phát hiện đúng theo thời gian được ra tín hiệu (có thể điều chỉnh lại sau này)
-    camera_prediction = camera_service.get_camera_detection()
-    merged_prediction = FallDetection(user_id=user.id, detected_img_url=None,
+    camera_prediction = await camera_service.get_camera_detection()
+    merged_prediction = FallDetection(user_id=user.id,
                                       mpu6050_res=mpu6050PredRes.mpu_best_class,
                                       camera_res=camera_prediction,
                                       created_time=datetime.now())
@@ -107,7 +110,8 @@ def handleMpu6050Prediction(mpu6050PredRes: Mpu6050Detection):
         db_session = SessionLocal()
         FallDetectionCrud.save(db_session, merged_prediction)
         latest_prediction_result = merged_prediction
-
+    print(camera_prediction)
+    VirtualDBCrud.write_property(VirtualDBFile.USER, user.id, CameraStatus.PREDICT_OFF)
     db_session.close()
 
 
@@ -143,3 +147,10 @@ def getCameraCurrentStatus(request: Request):
     user_id = request.cookies.get("user_id")
     # Check current camera status by service (Thread's Properties)
     return None
+
+
+async def getPredictionResults(request: Request):
+    db_session = SessionLocal()
+    user_id = request.cookies.get("user_id")
+    user = UserCrud.findByAccountId(db_session, user_id)
+    return [result.to_dict() for result in FallDetectionCrud.findAllTop30ByUserId(db_session, user.id)]

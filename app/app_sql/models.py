@@ -63,7 +63,7 @@ class FallDetection(Base):
             "id": self.id,
             "mpu6050_res": self.mpu6050_res,
             "camera_res": self.camera_res,
-            "created_time": self.created_time,
+            "created_time": self.created_time.strftime("%Y-%m-%d %H:%M:%S"),
             "user_id": self.user_id,
         }
 

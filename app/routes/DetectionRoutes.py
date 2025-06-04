@@ -25,11 +25,15 @@ async def mpu6050Detection(request: Request, dto: Mpu6050Detection):
         content={ "msg": "Received Data" }
     )
 
-@router.get(public_endpoints + "/latest-merged-result")
-def get_latest_result():
-    if latest_prediction_result:
-        return latest_prediction_result.to_dict()
-    return JSONResponse(content={"msg": "Chưa có kết quả"}, status_code=204)
+@router.get(user_endpoints + "/v1/latest-merged-result")
+async def get_latest_result(request: Request):
+    # if latest_prediction_result:
+    #     return latest_prediction_result.to_dict()
+    # return JSONResponse(content={"msg": "Chưa có kết quả"}, status_code=204)
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=await DetectionServices.getPredictionResults(request)
+    )
 
 # This Route belongs to MPU6050.
 @router.post(public_endpoints + "/v1/on-cam-pred-sts")
